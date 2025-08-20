@@ -1,72 +1,62 @@
-import { useEffect, useState } from 'react';
-import ProductCard from '../components/ProductCard';
+import { shopifyFetch } from "../lib/shopify";
 
-export default function Home() {
-  const [products, setProducts] = useState([]);
-  const [email, setEmail] = useState('');
-  const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    fetch('/api/products').then(r=>r.json()).then(setProducts);
-  }, []);
-
-  const startCheckout = async () => {
-    if (!email || !selected) return;
-    setLoading(true);
-    setMessage('');
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selected.id, email })
-      });
-      const data = await res.json();
-      if (data.redirectUrl) {
-        window.location.href = data.redirectUrl;
-      } else if (data.error) {
-        setMessage(data.error);
+export async function getStaticProps() {
+  const query = `
+    {
+      products(first: 6) {
+        edges {
+          node {
+            id
+            title
+            handle
+            images(first: 1) {
+              edges {
+                node {
+                  src
+                  altText
+                }
+              }
+            }
+            priceRange {
+              minVariantPrice {
+                amount
+              }
+            }
+          }
+        }
       }
-    } catch (e) {
-      setMessage('Błąd połączenia.');
-    } finally {
-      setLoading(false);
     }
+  `;
+
+  const data = await shopifyFetch(query);
+
+  return {
+    props: {
+      products: data.products.edges,
+    },
   };
+}
 
+export default function Home({ products }) {
   return (
-    <div className="container">
-      <header>
-        <div className="row">
-          <img src="/logo.svg" alt="logo" height="28" />
-          <span className="pill">Sklep gotowy</span>
-        </div>
-        <a href="/admin">Panel admin</a>
-      </header>
-
-      <h1 style={{marginTop:0}}>Sklep z linkami</h1>
-      <p>Wybierz produkt i podaj e-mail do dostarczenia linku.</p>
-
-      <div className="grid" style={{marginTop:14}}>
-        {products.map(p => (
-          <ProductCard key={p.id} product={p} onBuy={(prod) => setSelected(prod)} />
+    <div style={{ padding: "20px" }}>
+      <h1>Produkty</h1>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: "20px"
+      }}>
+        {products.map(({ node }) => (
+          <div key={node.id} style={{
+            border: "1px solid #ccc",
+            padding: "10px",
+            borderRadius: "10px"
+          }}>
+            <img src={node.images.edges[0]?.node.src} alt={node.title} width="200" />
+            <h2>{node.title}</h2>
+            <p>{node.priceRange.minVariantPrice.amount} PLN</p>
+          </div>
         ))}
-      </div>
-
-      <div className="card" style={{marginTop:20}}>
-        <h3 style={{marginTop:0}}>Dane do zamówienia</h3>
-        <div className="row" style={{marginTop:8}}>
-          <input className="input" placeholder="Twój e-mail do wysyłki linku"
-                 value={email} onChange={(e)=>setEmail(e.target.value)} />
-          <button className="btn" onClick={startCheckout} disabled={!selected || !email || loading}>
-            {loading ? 'Przetwarzanie…' : 'Zapłać'}
-          </button>
-        </div>
-        <p style={{marginTop:8, fontSize:13, opacity:.7}}>
-          Wybrany produkt: {selected ? selected.name : '— nie wybrano —'}
-        </p>
-        {message && <p style={{color:'#b91c1c'}}>{message}</p>}
       </div>
     </div>
   );
