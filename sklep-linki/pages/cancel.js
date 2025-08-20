@@ -1,8 +1,0 @@
-export default function Cancel(){
-  return (
-    <div className="container">
-      <h1>❌ Płatność anulowana</h1>
-      <a href="/">Wróć do sklepu</a>
-    </div>
-  );
-}
